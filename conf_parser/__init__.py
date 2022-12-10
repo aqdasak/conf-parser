@@ -8,31 +8,56 @@ def load(f: TextIOWrapper) -> dict:
 def loads(s: str) -> dict:
     config = {}
     section = config
-    i = 0
-    for line in s.split('\n'):
+    for i, line in enumerate(s.split('\n')):
         line = line.strip()
 
+        # Empty line
         if len(line) == 0:
             section[f'meta{i}'] = ''
-            i += 1
 
+        # E.g
+        # Comment
         elif line[0] == '#':
             section[f'meta{i}'] = line
-            i += 1
 
+        # E.g.
+        # [section_heading]
         elif line[0] == '[' and line[-1] == ']':
             section = {}
             config.update({line[1:-1]: section})
 
-        elif '=' in line:
-            # print(f'${line}$')
-            line = line.split('=')
-            # print(line)
-            section.update(dict([(line[0].strip(), line[1].strip())]))
+        # E.g.
+        # [section_heading] # Inline comment
+        elif (lambda x: x[0] == '[' and x[-1] == ']')(line.split('#', maxsplit=1)[0].strip()):
+            line, comment = line.split('#', maxsplit=1)
+            section = {f'inline_comment{i}': '#'+comment}
+            config.update({line.strip()[1:-1]: section})
 
+        # E.g.
+        # variable = value
+        # elif '=' in line:
+        #     # print(f'${line}$')
+        #     line = line.split('=')
+        #     # print(line)
+        #     section.update(dict([(line[0].strip(), line[1].strip())]))
+
+        # E.g.
+        # variable = value # Inline comment
+        elif (lambda x: '=' in x)(line.split('#', maxsplit=1)[0].strip()):
+            line = line.split('#', maxsplit=1)
+            if len(line) == 1:
+                key, value = line[0].split('=', maxsplit=1)
+                section.update(dict([(key.strip(), value.strip())]))
+
+            else:
+                line, comment = line
+                key, value = line.split('=', maxsplit=1)
+                section.update(dict([(key.strip(), value.strip())]))
+                section.update({f'inline_comment{i}': '#'+comment})
+
+        # Invalid cases
         else:
             section.update(dict([(f'meta{i}', line)]))
-            i += 1
 
     return config
 
@@ -54,6 +79,10 @@ def __dumps(config: dict[str:str]) -> str:
             # print(v.encode())
             if k.startswith('meta'):
                 config_str += v
+            elif k.startswith('inline_comment'):
+                # print(config_str)
+                # input()
+                config_str = config_str[:-1] + ' ' + v
             else:
                 config_str += f'{k} = {v}'
 
